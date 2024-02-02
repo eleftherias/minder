@@ -54,6 +54,10 @@ $XDG_CONFIG_HOME/minder/credentials.json`,
 
 // loginCommand is the login subcommand
 func loginCommand(cmd *cobra.Command, _ []string) error {
+	if err := viper.BindPFlags(cmd.Flags()); err != nil {
+		return fmt.Errorf("error binding flags: %s", err)
+	}
+
 	ctx := context.Background()
 
 	clientConfig, err := clientconfig.ReadConfigFromViper(viper.GetViper())
@@ -100,6 +104,10 @@ func loginCommand(cmd *cobra.Command, _ []string) error {
 	}
 	redirectURI := parsedURL.JoinPath(callbackPath)
 
+	offline := viper.GetBool("offline")
+	if offline {
+		scopes = append(scopes, "offline_access")
+	}
 	provider, err := rp.NewRelyingPartyOIDC(issuerUrl.String(), clientID, "", redirectURI.String(), scopes, options...)
 	if err != nil {
 		return cli.MessageAndError("Error creating relying party", err)
@@ -212,4 +220,9 @@ func loginCommand(cmd *cobra.Command, _ []string) error {
 
 func init() {
 	AuthCmd.AddCommand(loginCmd)
+	loginCmd.Flags().BoolP("offline", "o", false, "Whether to allow offline tokens")
+	err := loginCmd.Flags().MarkHidden("offline")
+	if err != nil {
+		cli.ExitNicelyOnError(err, "error marking flag as hidden")
+	}
 }
